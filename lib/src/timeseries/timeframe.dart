@@ -24,15 +24,29 @@ class TimeFrame {
     return data;
   }
 
-  /// Resample a dataset by a time period
-  static List<DateTime> resample(
-      {@required List<DateTime> dataset, @required Duration timePeriod}) {
-    final ds = <DateTime>[];
+  static Map<DateTime, num> resample(
+      {@required Map<DateTime, num> dataset,
+      @required Duration timePeriod,
+      ResampleMethod resampleMethod = ResampleMethod.mean}) {
+    final ds = <DateTime, num>{};
     _splitFromDuration(dataset, timePeriod).forEach((subSerie) {
-      final startDate = subSerie.keys.toList().first;
-      final endDate = subSerie.keys.toList()[subSerie.keys.toList().length - 1];
+      final startDate = subSerie.first.keys.toList().first;
+      final endDate = subSerie.last.keys.toList().first;
+      // resample numbers
+      final row = subSerie
+          .map<double>((row) => row[row.keys.toList()[0]].toDouble())
+          .toList();
+      num value;
+      switch (resampleMethod) {
+        case ResampleMethod.mean:
+          value = Vector.fromList(row).mean();
+          break;
+        case ResampleMethod.sum:
+          value = Vector.fromList(row).sum();
+          break;
+      }
       final date = _midDate(startDate, endDate);
-      ds.add(date);
+      ds[date] = value;
     });
     return ds;
   }
@@ -43,22 +57,23 @@ DateTime _midDate(DateTime startDate, DateTime endDate) {
   return endDate.subtract(offset);
 }
 
-List<Map<DateTime, DateTime>> _splitFromDuration(
-    List<DateTime> dataset, Duration timePeriod) {
-  final res = <Map<DateTime, DateTime>>[];
-  final startDate = dataset[0];
+List<List<Map<DateTime, num>>> _splitFromDuration(
+    Map<DateTime, num> dataset, Duration timePeriod) {
+  final res = <List<Map<DateTime, num>>>[];
+  final startDate = dataset.keys.toList()[0];
   var nextDate = startDate.add(timePeriod);
-  var subSerie = <DateTime, DateTime>{};
-  for (var date in dataset) {
+  var subSerie = <Map<DateTime, num>>[];
+  dataset.forEach((date, value) {
+    final record = <DateTime, num>{date: value};
     switch (date.isBefore(nextDate)) {
       case true:
-        subSerie[date] = date;
+        subSerie.add(record);
         break;
       case false:
         res.add(subSerie);
-        subSerie = {date: date};
+        subSerie = <Map<DateTime, num>>[record];
         nextDate = date.add(timePeriod);
     }
-  }
+  });
   return res;
 }
