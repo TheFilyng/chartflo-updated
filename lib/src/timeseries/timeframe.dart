@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ml_linalg/linalg.dart';
 import '../types.dart';
 
+// ignore: avoid_classes_with_only_static_members
 /// A time frame
 class TimeFrame {
   /// Populate data to now at a time interval
@@ -24,29 +25,14 @@ class TimeFrame {
   }
 
   /// Resample a dataset by a time period
-  static Map<DateTime, num> resample(
-      {@required Map<DateTime, num> dataset,
-      @required Duration timePeriod,
-      ResampleMethod resampleMethod = ResampleMethod.mean}) {
-    final ds = <DateTime, num>{};
+  static List<DateTime> resample(
+      {@required List<DateTime> dataset, @required Duration timePeriod}) {
+    final ds = <DateTime>[];
     _splitFromDuration(dataset, timePeriod).forEach((subSerie) {
-      final startDate = subSerie.first.keys.toList().first;
-      final endDate = subSerie.last.keys.toList().first;
-      // resample numbers
-      final row = subSerie
-          .map<double>((row) => row[row.keys.toList()[0]].toDouble())
-          .toList();
-      num value;
-      switch (resampleMethod) {
-        case ResampleMethod.mean:
-          value = Vector.fromList(row).mean();
-          break;
-        case ResampleMethod.sum:
-          value = Vector.fromList(row).sum();
-          break;
-      }
+      final startDate = subSerie.keys.toList().first;
+      final endDate = subSerie.keys.toList()[subSerie.keys.toList().length - 1];
       final date = _midDate(startDate, endDate);
-      ds[date] = value;
+      ds.add(date);
     });
     return ds;
   }
@@ -57,23 +43,22 @@ DateTime _midDate(DateTime startDate, DateTime endDate) {
   return endDate.subtract(offset);
 }
 
-List<List<Map<DateTime, num>>> _splitFromDuration(
-    Map<DateTime, num> dataset, Duration timePeriod) {
-  final res = <List<Map<DateTime, num>>>[];
-  final startDate = dataset.keys.toList()[0];
+List<Map<DateTime, DateTime>> _splitFromDuration(
+    List<DateTime> dataset, Duration timePeriod) {
+  final res = <Map<DateTime, DateTime>>[];
+  final startDate = dataset[0];
   var nextDate = startDate.add(timePeriod);
-  var subSerie = <Map<DateTime, num>>[];
-  dataset.forEach((date, value) {
-    final record = <DateTime, num>{date: value};
+  var subSerie = <DateTime, DateTime>{};
+  for (var date in dataset) {
     switch (date.isBefore(nextDate)) {
       case true:
-        subSerie.add(record);
+        subSerie[date] = date;
         break;
       case false:
         res.add(subSerie);
-        subSerie = <Map<DateTime, num>>[record];
+        subSerie = {date: date};
         nextDate = date.add(timePeriod);
     }
-  });
+  }
   return res;
 }
